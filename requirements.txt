@@ -1,0 +1,7 @@
+notebook
+jupyter
+numpy
+jax
+jaxlib
+matplotlib
+gym

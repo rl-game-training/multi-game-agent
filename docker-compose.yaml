@@ -1,0 +1,21 @@
+version: "3.6"
+
+networks:
+  jupyter_network:
+
+services:
+  notebook:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - jupyter_network
+    working_dir: &working_dir
+      /notebook/src
+    volumes:
+      - type: bind
+        source: ./src
+        target: *working_dir
+    ports:
+      - 8888:8888
+    command: ["jupyter", "notebook", "--ip=0.0.0.0", "--allow-root"]
