@@ -1,29 +1,35 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
-class QNet(nn.Module):
+class DQN(nn.Module):
 
-    def __init__(self):
-        super(QNet, self).__init__()
-        # 1 input image channel, 6 output channels, 3x3 square convolution
-        # kernel
-        self.conv1 = nn.Conv2d(4, 16, 2)
-        self.conv2 = nn.Conv2d(16, 32, 2)
-        # an affine operation: y = Wx + b
-        self.fc1 = nn.Linear(16 * 6 * 6, 120)  # 6*6 from image dimension
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+    def __init__(self, w, h, output_len):
+        super(DQN, self).__init__()
+
+        self.conv1 = nn.Conv2d(4, 16, kernel_size=2, stride=2)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=2, stride=2)
+        self.bn2 = nn.BatchNorm2d(32)
+ 
+
+        def conv2_size_out(size, kernel_size=2, stride=2):
+            return (size - (kernel_size-1) - 1) // stride + 1
+        
+        conv_out_w = conv2_size_out(conv2_size_out(w))
+        conv_out_h = conv2_size_out(conv2_size_out(h))
+        conv_out_size = conv_out_w * conv_out_h * 32
+        print(conv_out_h, conv_out_w)
+        self.flattened = nn.Linear(conv_out_size, output_len)
 
     def forward(self, x):
-        # Max pooling over a (2, 2) window
-        x = F.max_pool2d(F.relu(self.conv1(x)), (2, 2))
-        # If the size is a square you can only specify a single number
-        x = F.max_pool2d(F.relu(self.conv2(x)), 2)
-        x = x.view(-1, self.num_flat_features(x))
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        print(x.view(x.size(0), -1).size())
+        print(x.size())
+        x = self.flattened(x.view(x.size(0), -1))
         return x
 
     def num_flat_features(self, x):
@@ -36,5 +42,7 @@ class QNet(nn.Module):
 
 if __name__ == '__main__':
 
-    net = QNet()
+    s = torch.ones(size=(1, 4, 20, 20))
+    net = DQN(20, 20, 7)
     print(net)
+    print(net(s))
