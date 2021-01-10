@@ -115,9 +115,9 @@ frame_buffer = Buffer(capacity=4)
 reward_history = "reward_history"
 best_reward = 0
 
-def iterate_train():
+def iterate_train(num_episodes):
 
-    for ep in range(2000):
+    for ep in range(num_episodes):
         
         entry_frame = preprocess_frame(env.reset())
         reward_sum = 0
@@ -163,7 +163,7 @@ def iterate_train():
 
                 print(len(replay_buffer.storage))
                 break
-            
+
 if __name__ == '__main__':
     
     iterate_train()
