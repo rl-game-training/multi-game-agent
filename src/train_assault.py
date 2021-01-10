@@ -66,7 +66,7 @@ def update_net(dqn, optimizer):
 
     y_final = torch.tensor(list(map(lambda x: x[2], final_transitions)))
     y_non_final = torch.tensor(list(map(lambda x: x[2], non_final_transitions)))
-    y_non_final += dqn(dqn_input_states2).max(1)[0].detach().to(device)
+    y_non_final += dqn(dqn_input_states2).max(1)[0].to(device).detach()
     
     prediction_inp_final = None
     prediction_actions_final = None
