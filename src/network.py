@@ -17,18 +17,16 @@ class DQN(nn.Module):
         def conv2_size_out(size, kernel_size=2, stride=2):
             return (size - (kernel_size-1) - 1) // stride + 1
         
+        
         conv_out_w = conv2_size_out(conv2_size_out(w))
         conv_out_h = conv2_size_out(conv2_size_out(h))
         conv_out_size = conv_out_w * conv_out_h * 32
-        print(conv_out_h, conv_out_w)
         self.flattened = nn.Linear(conv_out_size, output_len)
 
     def forward(self, x):
 
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
-        print(x.view(x.size(0), -1).size())
-        print(x.size())
         x = self.flattened(x.view(x.size(0), -1))
         return x
 

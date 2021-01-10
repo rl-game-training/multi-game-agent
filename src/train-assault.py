@@ -7,6 +7,9 @@ import torchvision.transforms as T
 import torch
 from copy import copy
 from network import DQN
+import torch.nn.functional as F
+import torch.optim as optim
+
 
 def predict_action(obs):
     
@@ -22,11 +25,12 @@ class Buffer:
         self.size = 0
 
     def insert(self, entry):
-            
-        if self.write_ptr < self.capacity:
+                    
+        if len(self.storage) < self.capacity:
             self.storage.append(entry)
             self.write_ptr += 1
             self.size += 1
+
             return
             
         self.storage[self.write_ptr % self.capacity] = entry
@@ -48,28 +52,50 @@ def preprocess_frame(frame):
     return transformed.byte()
 
 
-def update_net(dqn):
+def update_net(dqn, optimizer):
 
     transitions_batch = random.sample(replay_buffer.storage, TRANSITIONS_BATCH_SIZE)
     final_transitions = [trans for trans in transitions_batch if trans[-1] == None]
     non_final_transitions = [trans for trans in transitions_batch if trans[-1] != None]
 
-    print("type of non f tranisitions", type(non_final_transitions[0][-1].storage[0]))
-    states = [state[-1].storage for state in non_final_transitions]
-    print(type(states))
-    print(type(states[0]))
-    print(type(states[0][-1]))
-    hui = [state[-1].storage for state in non_final_transitions]
-    print("hui type", type(hui[0]))
-    dqn_input_state2 = torch.tensor(np.array([state[-1].storage for state in non_final_transitions]), dtype=torch.uint8)
 
-    y_final = final_transitions[:][2]
-    y_non_final = transitions_batch[:][2]
-    y_non_final += dqn(dqn_input_state2).max(1)[0].detach()
+    #transform list<tuple<Buffer.storage>> into torch tensor
+    dqn_input_states2 = torch.stack(list(map(lambda x: torch.cat(x[-1].storage), non_final_transitions))).float()
+    dqn_input_states2 /= dqn_input_states2.max()
+
+    y_final = torch.tensor(list(map(lambda x: x[2], final_transitions)))
+    y_non_final = torch.tensor(list(map(lambda x: x[2], non_final_transitions)))
+    y_non_final += dqn(dqn_input_states2).max(1)[0].detach()
+    
+    prediction_inp_final = None
+    prediction_actions_final = None
+    pred_final = None
+
+    if len(final_transitions) > 0:
+        prediction_inp_final = torch.stack(list(map(lambda x: torch.cat(x[0].storage), final_transitions))).float()
+        prediction_actions_final = torch.tensor(list(map(lambda x: x[1], final_transitions)))
+        pred_final = dqn(prediction_inp_final)
+
+    predicion_inp_non_final = torch.stack(list(map(lambda x: torch.cat(x[0].storage), non_final_transitions))).float()
+    prediction_actions_non_final = torch.tensor(list(map(lambda x: x[1], non_final_transitions)))
+
+    predicion_inp_non_final /= predicion_inp_non_final.max()
+    pred_non_final = dqn(predicion_inp_non_final)
+
+    pred_non_final = pred_non_final[np.arange(pred_non_final.size(0)),prediction_actions_non_final]
+
+    hubert_loss = F.smooth_l1_loss(pred_non_final, y_non_final, size_average = True)
+
+     # Optimize the model
+    optimizer.zero_grad()
+    hubert_loss.backward()
+    for param in dqn.parameters():
+        param.grad.data.clamp_(-1, 1)
+    optimizer.step()
 
     
 
-env = gym.make("Assault-v0")
+env = gym.make("Breakout-v0")
 
 print(env.observation_space)
 print(env.action_space)
@@ -77,17 +103,22 @@ print(env.action_space.sample())
 #print(env.unwrapped.get_action_meanings())
 input()
 
-REPLAY_BUFFER_LEN = 500
+REPLAY_BUFFER_LEN = 3000
 TRANSITIONS_BATCH_SIZE = 30
-dqn = DQN(80, 80, 7)
+dqn = DQN(105, 80, 7)
+optimizer = optim.RMSprop(dqn.parameters())
 replay_buffer = Buffer(capacity=REPLAY_BUFFER_LEN)
 frame_buffer = Buffer(capacity=4)
+
+#file to save reward history
+reward_history = "reward_history"
+best_reward = 0
 
 #training loop
 for ep in range(200):
 
     entry_frame = preprocess_frame(env.reset())
-
+    reward_sum = 0
     while True:
 
         env.render()
@@ -114,17 +145,19 @@ for ep in range(200):
         transition = (frame_buffer, action, reward, next_frame_buffer)
 
         replay_buffer.insert(transition)
-        print(replay_buffer.size)
-        print("type last tuple el", type(transition[-1]))
-        #sample random transitions calculate loss and update weights
+                #sample random transitions calculate loss and update weights
         if replay_buffer.size >= 100:
-            update_net(dqn)
+            update_net(dqn, optimizer)
         
+        reward_sum += reward
         if done:
-            print("episode done, reward: ", reward)
+            print("episode done, reward: ", reward_sum)
+            with open(reward_history, "a") as f:
+                f.write(str(reward_sum) + '\n')
+
+            if reward_sum > best_reward:
+                torch.save(dqn, "best_net")
             break
 
 
 env.close()
-
-len
