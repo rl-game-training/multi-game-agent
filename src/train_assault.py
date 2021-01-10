@@ -61,12 +61,12 @@ def update_net(dqn, optimizer):
 
 
     #transform list<tuple<Buffer.storage>> into torch tensor
-    dqn_input_states2 = torch.stack(list(map(lambda x: torch.cat(x[-1].storage), non_final_transitions))).float()
+    dqn_input_states2 = torch.stack(list(map(lambda x: torch.cat(x[-1].storage), non_final_transitions))).float().to(device)
     dqn_input_states2 /= dqn_input_states2.max()
 
     y_final = torch.tensor(list(map(lambda x: x[2], final_transitions)))
     y_non_final = torch.tensor(list(map(lambda x: x[2], non_final_transitions)))
-    y_non_final += dqn(dqn_input_states2).max(1)[0].to(device).detach()
+    y_non_final += dqn(dqn_input_states2).max(1)[0].detach()
     
     prediction_inp_final = None
     prediction_actions_final = None
