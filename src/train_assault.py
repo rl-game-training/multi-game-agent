@@ -116,7 +116,7 @@ best_reward = 0
 
 #training loop
 for ep in range(2000):
-
+    
     entry_frame = preprocess_frame(env.reset())
     reward_sum = 0
     while True:
