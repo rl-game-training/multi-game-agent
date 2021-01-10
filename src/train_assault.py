@@ -103,7 +103,7 @@ print(env.action_space.sample())
 #print(env.unwrapped.get_action_meanings())
 input()
 
-REPLAY_BUFFER_LEN = 3000
+REPLAY_BUFFER_LEN = 6000
 TRANSITIONS_BATCH_SIZE = 30
 dqn = DQN(105, 80, 7)
 optimizer = optim.RMSprop(dqn.parameters())
@@ -115,7 +115,7 @@ reward_history = "reward_history"
 best_reward = 0
 
 #training loop
-for ep in range(200):
+for ep in range(2000):
 
     entry_frame = preprocess_frame(env.reset())
     reward_sum = 0
@@ -157,6 +157,8 @@ for ep in range(200):
 
             if reward_sum > best_reward:
                 torch.save(dqn, "best_net")
+
+            print(len(replay_buffer.storage))
             break
 
 
