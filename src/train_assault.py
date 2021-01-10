@@ -65,8 +65,10 @@ def update_net(dqn, optimizer):
     dqn_input_states2 /= dqn_input_states2.max()
 
     y_final = torch.tensor(list(map(lambda x: x[2], final_transitions)), device=device)
-    y_non_final = torch.tensor(list(map(lambda x: x[2], non_final_transitions)))
-    y_non_final += dqn(dqn_input_states2).to(device).max(1)[0].detach()
+    y_non_final = torch.tensor(list(map(lambda x: x[2], non_final_transitions)), device=device)
+    dqn_pred = dqn(dqn_input_states2)
+    print("DQN pred cuda ", dqn_pred.is_cuda)
+    y_non_final += dqn_pred.max(1)[0].detach()
     
     prediction_inp_final = None
     prediction_actions_final = None
