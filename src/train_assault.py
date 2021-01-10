@@ -62,38 +62,40 @@ def update_net(dqn, optimizer):
 
     #transform list<tuple<Buffer.storage>> into torch tensor
     dqn_input_states2 = torch.stack(list(map(lambda x: torch.cat(x[-1].storage), non_final_transitions))).float().to(device)
-    dqn_input_states2 /= dqn_input_states2.max()
+    dqn_input_states2 /= 256
 
     y_final = torch.tensor(list(map(lambda x: x[2], final_transitions)), device=device)
     y_non_final = torch.tensor(list(map(lambda x: x[2], non_final_transitions)), device=device)
-    dqn_pred = dqn(dqn_input_states2)
-    y_non_final += dqn_pred.max(1)[0].detach()
+    y_non_final += dqn(dqn_input_states2).max(1)[0].detach()
     
     prediction_inp_final = None
     prediction_actions_final = None
     pred_final = None
 
     if len(final_transitions) > 0:
-        prediction_inp_final = torch.stack(list(map(lambda x: torch.cat(x[0].storage), final_transitions))).float()
+        prediction_inp_final = torch.stack(list(map(lambda x: torch.cat(x[0].storage), final_transitions))).float() / 256
         prediction_actions_final = torch.tensor(list(map(lambda x: x[1], final_transitions)))
         pred_final = dqn(prediction_inp_final)
 
     predicion_inp_non_final = torch.stack(list(map(lambda x: torch.cat(x[0].storage), non_final_transitions))).float()
     prediction_actions_non_final = torch.tensor(list(map(lambda x: x[1], non_final_transitions)))
 
-    predicion_inp_non_final /= predicion_inp_non_final.max()
+    predicion_inp_non_final /= 256
     pred_non_final = dqn(predicion_inp_non_final)
 
     pred_non_final = pred_non_final[np.arange(pred_non_final.size(0)),prediction_actions_non_final]
 
-    hubert_loss = F.smooth_l1_loss(pred_non_final, y_non_final, size_average = True)
-
+    #print(pred_non_final, y_non_final)
+    #input("hui huihui")
+    hubert_loss = F.smooth_l1_loss(pred_non_final, y_non_final, reduction='mean')
      # Optimize the model
     optimizer.zero_grad()
     hubert_loss.backward()
     for param in dqn.parameters():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
+
+    return hubert_loss
 
     
 
@@ -123,6 +125,8 @@ def iterate_train(num_episodes):
         
         entry_frame = preprocess_frame(env.reset())
         reward_sum = 0
+        frames = 0
+        loss = 0
         while True:
 
             if not render_colab:
@@ -152,7 +156,12 @@ def iterate_train(num_episodes):
             replay_buffer.insert(transition)
                     #sample random transitions calculate loss and update weights
             if replay_buffer.size >= 100:
-                update_net(dqn, optimizer)
+                loss += update_net(dqn, optimizer)
+            
+            if frames % 50 == 0:
+                
+                print(loss)
+                loss = 0
             
             reward_sum += reward
             if done:
@@ -165,6 +174,8 @@ def iterate_train(num_episodes):
 
                 print(len(replay_buffer.storage))
                 break
+
+            frames += 1
 
 if __name__ == '__main__':
     
