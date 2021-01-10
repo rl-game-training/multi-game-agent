@@ -102,6 +102,7 @@ print(env.action_space)
 print(env.action_space.sample())
 #print(env.unwrapped.get_action_meanings())
 render_colab = input("Do you want to render in colab?")
+render_colab = render_colab in {'y', 'yes'}
 
 REPLAY_BUFFER_LEN = 6000
 TRANSITIONS_BATCH_SIZE = 30
@@ -114,15 +115,15 @@ frame_buffer = Buffer(capacity=4)
 reward_history = "reward_history"
 best_reward = 0
 
-if __name__ == '__main__':
-    #training loop
+def iterate_train():
+
     for ep in range(2000):
         
         entry_frame = preprocess_frame(env.reset())
         reward_sum = 0
         while True:
 
-            if render_colab in {'y', 'yes'}:
+            if not render_colab:
                 env.render()
             
             frame_buffer.insert(entry_frame)
@@ -162,6 +163,11 @@ if __name__ == '__main__':
 
                 print(len(replay_buffer.storage))
                 break
+            
+if __name__ == '__main__':
+    
+    iterate_train()
+
 
 
     env.close()
