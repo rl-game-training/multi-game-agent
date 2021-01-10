@@ -101,7 +101,7 @@ print(env.observation_space)
 print(env.action_space)
 print(env.action_space.sample())
 #print(env.unwrapped.get_action_meanings())
-input()
+render_colab = input("Do you want to render in colab?")
 
 REPLAY_BUFFER_LEN = 6000
 TRANSITIONS_BATCH_SIZE = 30
@@ -114,52 +114,54 @@ frame_buffer = Buffer(capacity=4)
 reward_history = "reward_history"
 best_reward = 0
 
-#training loop
-for ep in range(2000):
-    
-    entry_frame = preprocess_frame(env.reset())
-    reward_sum = 0
-    while True:
-
-        env.render()
+if __name__ == '__main__':
+    #training loop
+    for ep in range(2000):
         
-        frame_buffer.insert(entry_frame)
+        entry_frame = preprocess_frame(env.reset())
+        reward_sum = 0
+        while True:
 
-        # 1% chance to make random action
-        if randint(1, 100) == 1 or frame_buffer.size < frame_buffer.capacity:
-            action = env.action_space.sample()
+            if render_colab in {'y', 'yes'}:
+                env.render()
+            
+            frame_buffer.insert(entry_frame)
 
-        else:
-            action = predict_action(frame_buffer.storage)
-        
-        next_frame, reward, done, info = env.step(action)
-        next_frame_buffer = None
+            # 1% chance to make random action
+            if randint(1, 100) == 1 or frame_buffer.size < frame_buffer.capacity:
+                action = env.action_space.sample()
 
-        if not done:
-            next_frame = preprocess_frame(next_frame)
-            next_frame_buffer = copy(frame_buffer)
-            next_frame_buffer.insert(next_frame)
-            entry_frame = copy(next_frame)
+            else:
+                action = predict_action(frame_buffer.storage)
+            
+            next_frame, reward, done, info = env.step(action)
+            next_frame_buffer = None
 
-        #put transition to experience replay buffer
-        transition = (frame_buffer, action, reward, next_frame_buffer)
+            if not done:
+                next_frame = preprocess_frame(next_frame)
+                next_frame_buffer = copy(frame_buffer)
+                next_frame_buffer.insert(next_frame)
+                entry_frame = copy(next_frame)
 
-        replay_buffer.insert(transition)
-                #sample random transitions calculate loss and update weights
-        if replay_buffer.size >= 100:
-            update_net(dqn, optimizer)
-        
-        reward_sum += reward
-        if done:
-            print("episode done, reward: ", reward_sum)
-            with open(reward_history, "a") as f:
-                f.write(str(reward_sum) + '\n')
+            #put transition to experience replay buffer
+            transition = (frame_buffer, action, reward, next_frame_buffer)
 
-            if reward_sum > best_reward:
-                torch.save(dqn, "best_net")
+            replay_buffer.insert(transition)
+                    #sample random transitions calculate loss and update weights
+            if replay_buffer.size >= 100:
+                update_net(dqn, optimizer)
+            
+            reward_sum += reward
+            if done:
+                print("episode done, reward: ", reward_sum)
+                with open(reward_history, "a") as f:
+                    f.write(str(reward_sum) + '\n')
 
-            print(len(replay_buffer.storage))
-            break
+                if reward_sum > best_reward:
+                    torch.save(dqn, "best_net")
+
+                print(len(replay_buffer.storage))
+                break
 
 
-env.close()
+    env.close()
