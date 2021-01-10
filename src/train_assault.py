@@ -10,6 +10,7 @@ from network import DQN
 import torch.nn.functional as F
 import torch.optim as optim
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def predict_action(obs):
     
@@ -48,7 +49,7 @@ transform_frame = T.Compose([
             
 def preprocess_frame(frame):
 
-    transformed = transform_frame(frame)
+    transformed = transform_frame(frame).to(device)
     return transformed.byte()
 
 
@@ -106,7 +107,7 @@ render_colab = render_colab in {'y', 'yes'}
 
 REPLAY_BUFFER_LEN = 6000
 TRANSITIONS_BATCH_SIZE = 30
-dqn = DQN(105, 80, 7)
+dqn = DQN(105, 80, 7).to(device)
 optimizer = optim.RMSprop(dqn.parameters())
 replay_buffer = Buffer(capacity=REPLAY_BUFFER_LEN)
 frame_buffer = Buffer(capacity=4)
@@ -166,7 +167,7 @@ def iterate_train(num_episodes):
 
 if __name__ == '__main__':
     
-    iterate_train()
+    iterate_train(2)
 
 
 
