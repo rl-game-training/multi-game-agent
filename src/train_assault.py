@@ -9,12 +9,15 @@ from copy import copy
 from network import DQN
 import torch.nn.functional as F
 import torch.optim as optim
+from collections import namedtuple
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+Transition = namedtuple('Transition', 
+                        ('state', 'action', 'reward', 'next_state'))
 
-def predict_action(obs):
+def predict_action(obs, dqn_policy):
     
-    return randint(0, 6)
+    return dqn_policy(dqn_input_states2).max(1)[0].detach()
 
 class Buffer:
 
@@ -53,51 +56,59 @@ def preprocess_frame(frame):
     return transformed.byte()
 
 
-def update_net(dqn, optimizer):
+GAMMA = 0.99
+
+def update_net(dqn_policy, dqn_target, optimizer):
+
+    def get_states_tensor(transitions, next=False):
+
+        idx = 0
+        if next: idx = 3
+
+        return torch.stack(list(map(lambda x: torch.cat(x[idx].storage), transitions))).float().to(device)
 
     transitions_batch = random.sample(replay_buffer.storage, TRANSITIONS_BATCH_SIZE)
-    final_transitions = [trans for trans in transitions_batch if trans[-1] == None]
-    non_final_transitions = [trans for trans in transitions_batch if trans[-1] != None]
+
+    #create a mask to more easily pick final and non-final states from torch tensors
+    final_transitions_mask = torch.tensor([idx for idx, trans in enumerate(transitions_batch) if trans.next_state == None]).to(device)
+    non_final_transitions_mask = torch.tensor([idx for idx, trans in enumerate(transitions_batch) if trans.next_state != None]).to(device)
+
+    final_transitions = [trans for trans in transitions_batch if trans.next_state == None]
+    non_final_transitions = [trans for trans in transitions_batch if trans.next_state != None]
 
 
+    states = get_states_tensor(transitions_batch)
     #transform list<tuple<Buffer.storage>> into torch tensor
-    dqn_input_states2 = torch.stack(list(map(lambda x: torch.cat(x[-1].storage), non_final_transitions))).float().to(device)
-    dqn_input_states2 /= 256
+    next_states = get_states_tensor(non_final_transitions, next=True)
+    next_states /= 256
 
-    y_final = torch.tensor(list(map(lambda x: x[2], final_transitions)), device=device)
-    y_non_final = torch.tensor(list(map(lambda x: x[2], non_final_transitions)), device=device)
-    y_non_final += dqn(dqn_input_states2).max(1)[0].detach()
-    
-    prediction_inp_final = None
-    prediction_actions_final = None
-    pred_final = None
+    actions = torch.tensor(list(map(lambda x: x.action, transitions_batch)), device=device)
+    #y[final_mask] = rewards[final_mask]
+    #y[non_final_mask] = rewards[non_final_mask] + GAMMA * dqn_target(next_states)[non_final_mask]
 
-    if len(final_transitions) > 0:
-        prediction_inp_final = torch.stack(list(map(lambda x: torch.cat(x[0].storage), final_transitions))).float() / 256
-        prediction_actions_final = torch.tensor(list(map(lambda x: x[1], final_transitions)))
-        pred_final = dqn(prediction_inp_final)
+    y = torch.tensor(list(map(lambda x: x.reward, transitions_batch)), device=device)
+    #print("y before pred ", y)
+    y[non_final_transitions_mask] += GAMMA * dqn_target(next_states).max(1)[0].detach()
+    #print("y ", y)
+    #print("non final transitions", non_final_transitions_mask)
 
-    predicion_inp_non_final = torch.stack(list(map(lambda x: torch.cat(x[0].storage), non_final_transitions))).float()
-    prediction_actions_non_final = torch.tensor(list(map(lambda x: x[1], non_final_transitions)))
+    #print("actions", actions)
 
-    predicion_inp_non_final /= 256
-    pred_non_final = dqn(predicion_inp_non_final)
+    policy_pred = dqn_policy(states).gather(1, actions.view(-1, 1))
 
-    pred_non_final = pred_non_final[np.arange(pred_non_final.size(0)),prediction_actions_non_final]
+    #print("policy pred size", policy_pred.size())
 
-    #print(pred_non_final, y_non_final)
-    #input("hui huihui")
-    hubert_loss = F.smooth_l1_loss(pred_non_final, y_non_final, reduction='mean')
+    huber_loss = F.smooth_l1_loss(policy_pred, y, reduction='mean')
+    #print("loss", huber_loss)
      # Optimize the model
     optimizer.zero_grad()
-    hubert_loss.backward()
-    for param in dqn.parameters():
+    huber_loss.backward()
+    for param in dqn_policy.parameters():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
-    return hubert_loss
+    return huber_loss
 
-    
 
 env = gym.make("Breakout-v0")
 
@@ -105,19 +116,26 @@ print(env.observation_space)
 print(env.action_space)
 print(env.action_space.sample())
 #print(env.unwrapped.get_action_meanings())
-render_colab = input("Do you want to render in colab?")
-render_colab = render_colab in {'y', 'yes'}
+
 
 REPLAY_BUFFER_LEN = 6000
 TRANSITIONS_BATCH_SIZE = 30
-dqn = DQN(105, 80, 7).to(device)
-optimizer = optim.RMSprop(dqn.parameters())
+
+NET_W, NET_H, OUTPUT_LEN = (105, 80, 7)
+SYNC_TARGET_FREQ = 10
+
+dqn_policy = DQN(NET_W, NET_H, OUTPUT_LEN).to(device)
+dqn_target = DQN(NET_W, NET_H, OUTPUT_LEN).to(device)
+dqn_target.eval()
+
+optimizer = optim.RMSprop(dqn_policy.parameters())
 replay_buffer = Buffer(capacity=REPLAY_BUFFER_LEN)
 frame_buffer = Buffer(capacity=4)
 
 #file to save reward history
 reward_history = "reward_history"
 best_reward = 0
+
 
 def iterate_train(num_episodes):
 
@@ -129,8 +147,7 @@ def iterate_train(num_episodes):
         loss = 0
         while True:
 
-            if not render_colab:
-                env.render()
+            env.render()
             
             frame_buffer.insert(entry_frame)
 
@@ -139,7 +156,7 @@ def iterate_train(num_episodes):
                 action = env.action_space.sample()
 
             else:
-                action = predict_action(frame_buffer.storage)
+                action = predict_action(frame_buffer.storage, dqn_policy)
             
             next_frame, reward, done, info = env.step(action)
             next_frame_buffer = None
@@ -151,16 +168,16 @@ def iterate_train(num_episodes):
                 entry_frame = copy(next_frame)
 
             #put transition to experience replay buffer
-            transition = (frame_buffer, action, reward, next_frame_buffer)
+            transition = Transition(frame_buffer, action, reward, next_frame_buffer)
 
             replay_buffer.insert(transition)
                     #sample random transitions calculate loss and update weights
             if replay_buffer.size >= 100:
-                loss += update_net(dqn, optimizer)
+                loss += update_net(dqn_policy, dqn_target, optimizer)
             
             if frames % 50 == 0:
                 
-                print(loss)
+                print(loss/50)
                 loss = 0
             
             reward_sum += reward
@@ -174,6 +191,10 @@ def iterate_train(num_episodes):
 
                 print(len(replay_buffer.storage))
                 break
+            
+            if frames % SYNC_TARGET_FREQ == 0:
+                
+                dqn_target.load_state_dict(dqn_policy.state_dict()) 
 
             frames += 1
 
