@@ -70,10 +70,10 @@ def update_net(dqn_policy, dqn_target, optimizer):
     transitions_batch = random.sample(replay_buffer.storage, TRANSITIONS_BATCH_SIZE)
 
     #create a mask to more easily pick final and non-final states from torch tensors
-    final_transitions_mask = torch.tensor([idx for idx, trans in enumerate(transitions_batch) if trans.next_state == None]).to(device)
+    #final_transitions_mask = torch.tensor([idx for idx, trans in enumerate(transitions_batch) if trans.next_state == None]).to(device)
     non_final_transitions_mask = torch.tensor([idx for idx, trans in enumerate(transitions_batch) if trans.next_state != None]).to(device)
 
-    final_transitions = [trans for trans in transitions_batch if trans.next_state == None]
+    #final_transitions = [trans for trans in transitions_batch if trans.next_state == None]
     non_final_transitions = [trans for trans in transitions_batch if trans.next_state != None]
 
 
@@ -87,7 +87,6 @@ def update_net(dqn_policy, dqn_target, optimizer):
 
     y = torch.tensor(list(map(lambda x: x.reward, transitions_batch)), device=device)
     y[non_final_transitions_mask] += GAMMA * dqn_target(next_states).max(1)[0].detach()
-
 
     policy_pred = dqn_policy(states).gather(1, actions.view(-1, 1)).view(y.size())
 
@@ -108,13 +107,13 @@ env = gym.make("Breakout-v0")
 print(env.observation_space)
 print(env.action_space)
 print(env.action_space.sample())
-#print(env.unwrapped.get_action_meanings())
+print(env.unwrapped.get_action_meanings())
 
 
 REPLAY_BUFFER_LEN = 6000
 TRANSITIONS_BATCH_SIZE = 30
 
-NET_W, NET_H, OUTPUT_LEN = (105, 80, 7)
+NET_W, NET_H, OUTPUT_LEN = (105, 80, 4)
 SYNC_TARGET_FREQ = 10
 
 dqn_policy = DQN(NET_W, NET_H, OUTPUT_LEN).to(device)
@@ -168,14 +167,11 @@ def iterate_train(num_episodes):
             if replay_buffer.size >= 100:
                 loss += update_net(dqn_policy, dqn_target, optimizer)
             
-            if frames % 50 == 0:
-                
-                print(loss/50)
-                loss = 0
-            
             reward_sum += reward
             if done:
                 print("episode done, reward: ", reward_sum)
+                if frames > 0: print("loss: ", loss/frames)
+                frames = 0
                 with open(reward_history, "a") as f:
                     f.write(str(reward_sum) + '\n')
 
