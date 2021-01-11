@@ -91,7 +91,6 @@ def update_net(dqn_policy, dqn_target, optimizer):
 
     policy_pred = dqn_policy(states).gather(1, actions.view(-1, 1)).view(y.size())
 
-    print("SIZE", policy_pred.size())
     huber_loss = F.smooth_l1_loss(policy_pred, y, reduction='mean')
  
      # Optimize the model
