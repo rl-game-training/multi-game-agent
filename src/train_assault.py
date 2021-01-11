@@ -83,23 +83,18 @@ def update_net(dqn_policy, dqn_target, optimizer):
     next_states /= 256
 
     actions = torch.tensor(list(map(lambda x: x.action, transitions_batch)), device=device)
-    #y[final_mask] = rewards[final_mask]
-    #y[non_final_mask] = rewards[non_final_mask] + GAMMA * dqn_target(next_states)[non_final_mask]
+
 
     y = torch.tensor(list(map(lambda x: x.reward, transitions_batch)), device=device)
-    #print("y before pred ", y)
     y[non_final_transitions_mask] += GAMMA * dqn_target(next_states).max(1)[0].detach()
-    #print("y ", y)
-    #print("non final transitions", non_final_transitions_mask)
 
-    #print("actions", actions)
+    #print(y)
 
-    policy_pred = dqn_policy(states).gather(1, actions.view(-1, 1))
+    policy_pred = dqn_policy(states).gather(1, actions.view(-1, 1)).view(y.size())
 
-    #print("policy pred size", policy_pred.size())
 
     huber_loss = F.smooth_l1_loss(policy_pred, y, reduction='mean')
-    #print("loss", huber_loss)
+ 
      # Optimize the model
     optimizer.zero_grad()
     huber_loss.backward()
