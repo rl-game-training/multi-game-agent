@@ -187,7 +187,7 @@ def iterate_train(num_episodes):
                     f.write(str(reward_sum) + '\n')
 
                 if reward_sum > best_reward:
-                    torch.save(dqn, "best_net")
+                    torch.save(dqn_policy, "best_net")
 
                 print(len(replay_buffer.storage))
                 break
