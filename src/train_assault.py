@@ -194,7 +194,7 @@ def iterate_train(num_episodes):
             #if len(frame_buffer.storage) == frame_buffer.capacity: buffers_diff(frame_buffer, next_frame_buffer)
             
             #sample random transitions calculate loss and update weights
-            if len(replay_buffer.storage) >= 100:
+            if len(replay_buffer.storage) >= TRANSITIONS_BATCH_SIZE:
                 loss += update_net(dqn_policy, dqn_target, optimizer)
             
             reward_sum += reward
