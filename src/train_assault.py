@@ -209,12 +209,10 @@ def iterate_train(num_episodes):
                 if reward_sum > best_reward:
                     torch.save(dqn_policy, "best_net")
 
-                print(len(replay_buffer.storage))
                 break
             
             if frames % SYNC_TARGET_FREQ == 0:
                 
-                print("sync")
                 dqn_target.load_state_dict(dqn_policy.state_dict()) 
 
             frames += 1
