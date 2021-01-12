@@ -124,8 +124,8 @@ print(env.action_space.sample())
 print(env.unwrapped.get_action_meanings())
 
 
-REPLAY_BUFFER_LEN = 2000
-TRANSITIONS_BATCH_SIZE = 30
+REPLAY_BUFFER_LEN = 20000
+TRANSITIONS_BATCH_SIZE = 128
 
 NET_W, NET_H, OUTPUT_LEN = (105, 80, 4)
 SYNC_TARGET_FREQ = 10
@@ -219,7 +219,7 @@ def iterate_train(num_episodes):
 
 if __name__ == '__main__':
     
-    iterate_train(5)
+    iterate_train(10000)
 
 
 
