@@ -13,7 +13,7 @@ from collections import namedtuple, deque
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 Transition = namedtuple('Transition', 
-                        ('state', 'action', 'reward', 'next_state'))
+                        ('frames', 'state', 'action', 'reward', 'next_state'))
 
 def predict_action(obs, dqn_policy):
     
@@ -65,10 +65,10 @@ def update_net(dqn_policy, dqn_target, optimizer):
 
     def get_states_tensor(transitions, next=False):
 
-        idx = 0
-        if next: idx = 3
+        map_f = lambda x: torch.cat(list(x.state.storage))
+        if next: map_f = lambda x: torch.cat(list(x.next_state.storage))
 
-        return torch.stack(list(map(lambda x: torch.cat(list(x[idx].storage)), transitions))).float().to(device)
+        return torch.stack(list(map(map_f, transitions))).float().to(device)
 
     transitions_batch = random.sample(replay_buffer.storage, TRANSITIONS_BATCH_SIZE)
 
@@ -77,14 +77,16 @@ def update_net(dqn_policy, dqn_target, optimizer):
 
     non_final_transitions = [trans for trans in transitions_batch if trans.next_state != None]
 
-
+    #print("transition batch frames", list(map(lambda x: x.frames, transitions_batch)))
     states = get_states_tensor(transitions_batch).clamp(0, 1)
     next_states = get_states_tensor(non_final_transitions, next=True).clamp(0, 1)
     
     #print("states size", states.size())
     #print("next states size ", next_states.size())
     #print("states equal", torch.equal(states, next_states))
-    #print("nest states", next_states.sum())
+    #print(len(states.masked_select(states == next_states)))
+    #print("next states sum", next_states.sum())
+    #print("curr states sum", states.sum())
 
     actions = torch.tensor(list(map(lambda x: x.action, transitions_batch)), device=device)
 
@@ -116,7 +118,7 @@ def update_net(dqn_policy, dqn_target, optimizer):
     return huber_loss
 
 
-env = gym.make("Breakout-v0")
+env = gym.make("Pong-v0")
 
 print(env.observation_space)
 print(env.action_space)
@@ -124,10 +126,10 @@ print(env.action_space.sample())
 print(env.unwrapped.get_action_meanings())
 
 
-REPLAY_BUFFER_LEN = 20000
-TRANSITIONS_BATCH_SIZE = 128
+REPLAY_BUFFER_LEN = 4000
+TRANSITIONS_BATCH_SIZE = 32
 
-NET_W, NET_H, OUTPUT_LEN = (105, 80, 4)
+NET_W, NET_H, OUTPUT_LEN = (105, 80, 6)
 SYNC_TARGET_FREQ = 10
 
 dqn_policy = DQN(NET_W, NET_H, OUTPUT_LEN).to(device)
@@ -167,7 +169,7 @@ def iterate_train(num_episodes):
             
             frame_buffer.insert(entry_frame)
 
-            # 1% chance to make random action
+            # 5% chance to make random action
             if randint(1, 100) == 1 or len(frame_buffer.storage) < frame_buffer.capacity:
                 action = env.action_space.sample()
 
@@ -188,7 +190,7 @@ def iterate_train(num_episodes):
 
             #put transition to experience replay buffer
             if len(frame_buffer.storage) >= frame_buffer.capacity:
-                transition = Transition(frame_buffer, action, reward, next_frame_buffer)
+                transition = Transition(frames, frame_buffer, action, reward, next_frame_buffer)
                 replay_buffer.insert(transition)
 
             #if len(frame_buffer.storage) == frame_buffer.capacity: buffers_diff(frame_buffer, next_frame_buffer)
