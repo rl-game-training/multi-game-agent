@@ -227,7 +227,7 @@ class Agent:
                 metadata['reward'].append(total_reward)
 
                 if episode % 100 == 0 and episode != 0:
-                    avg_return = np.mean(metadata['reward'][-100:])
+                    avg_return = np.mean(metadata['reward'][-100:], dtype=np.float)
                     print("Average return (last 100 episodes): {:.2f}".format(avg_return))
 
                 if plot:
