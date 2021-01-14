@@ -1,7 +1,13 @@
 notebook
-jupyter
 numpy
-jax
-jaxlib
 matplotlib
-gym
+gym[atari]
+torch
+torchvision
+network
+tensorflow
+scikit-image
+ipywidgets
+jupyter
+IPython
+tqdm
