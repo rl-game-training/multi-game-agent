@@ -14,6 +14,8 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm_notebook as tqdm
 from collections import deque, namedtuple
 
+from pyvirtualdisplay import Display
+
 
 Transition = namedtuple('Transition', ['state', 'action', 'reward', 'terminal', 'next_state'])
 
@@ -148,7 +150,12 @@ class Agent:
         loss.backward()
         self.opt.step()
 
-    def play(self, episodes, train=False, load=False, plot=False, render=False, verbose=False):
+    def play(self, episodes, train=False, load=False, plot=False, render=False, verbose=False,
+             render_colab=False):
+
+        if render_colab:
+            v_display = Display(visible=0, size=(640, 480))
+            v_display.start()
 
         self.t = 0
         metadata = dict(episode=[], reward=[])
@@ -172,6 +179,11 @@ class Agent:
 
                     if render:
                         self.env.render()
+
+                    if render_colab and not render:
+                        display.clear_output(wait=True)
+                        display.display(plt.gcf())
+                        plt.imshow(self.env.render(mode='rgb_array'))
 
                     while state.size()[1] < self.num_frames:
                         action = 1  # Fire
