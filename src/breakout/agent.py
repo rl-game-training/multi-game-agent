@@ -151,7 +151,7 @@ class Agent:
         self.opt.step()
 
     def play(self, episodes, train=False, load=False, plot=False, render=False, verbose=False,
-             render_colab=False):
+             render_colab=False, omit_sleep=False):
 
         if render_colab:
             v_display = Display(visible=0, size=(640, 480))
@@ -183,6 +183,7 @@ class Agent:
                     if render_colab and not render:
                         display.clear_output(wait=True)
                         display.display(plt.gcf())
+                        plt.grid(None)
                         plt.imshow(self.env.render(mode='rgb_array'))
 
                     while state.size()[1] < self.num_frames:
@@ -217,7 +218,7 @@ class Agent:
                     self.t += 1
                     i += 1
 
-                    if not train:
+                    if not train and not omit_sleep:
                         import time
                         time.sleep(0.1)
 
