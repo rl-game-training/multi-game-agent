@@ -182,11 +182,8 @@ class Agent:
 
                     if render_colab and not render:
                         display.clear_output(wait=True)
-                        plt.grid(None)
                         display.display(plt.gcf())
-                        plt.grid(None)
                         plt.imshow(self.env.render(mode='rgb_array'))
-                        plt.grid(None)
 
                     while state.size()[1] < self.num_frames:
                         action = 1  # Fire
