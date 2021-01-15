@@ -156,6 +156,7 @@ class Agent:
         if render_colab:
             v_display = Display(visible=0, size=(640, 480))
             v_display.start()
+            plt.rcParams['axes.grid'] = False
 
         self.t = 0
         metadata = dict(episode=[], reward=[])
@@ -181,7 +182,6 @@ class Agent:
                         self.env.render()
 
                     if render_colab and not render:
-                        plt.grid(None)
                         display.clear_output(wait=True)
                         display.display(plt.gcf())
                         plt.imshow(self.env.render(mode='rgb_array'))
