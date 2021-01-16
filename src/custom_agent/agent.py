@@ -94,6 +94,8 @@ class BreakoutAgent:
                                              alpha=0.95,
                                              eps=0.01)
 
+        self.clone_model()
+
     def load_ckpt(self):
         """
         Loads the latest checkpoint from the specified checkpoint directory, if there are any.
