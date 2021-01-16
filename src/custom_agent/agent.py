@@ -48,7 +48,7 @@ class BreakoutAgent:
                  save_interval,
                  clone_interval,
                  ckpt_dir=DEFAULT_CHECKPOINT_DIR,
-                 __debug=False
+                 debug=False
                  ):
         # CUDA device available
         self.cuda = torch.cuda.is_available()
@@ -97,7 +97,7 @@ class BreakoutAgent:
 
         self.clone_model()
 
-        self.__debug = __debug
+        self.debug = debug
 
     def load_ckpt(self):
         """
@@ -162,7 +162,7 @@ class BreakoutAgent:
             action = torch.argmax(q_values)
             action = action.item()
 
-        if self.__debug:
+        if self.debug:
             print('Predicted action: {} with explore probability: {:.3f}. Random: {}'
                   .format(action, explore_probability, (explore_probability > tradeoff)))
 
