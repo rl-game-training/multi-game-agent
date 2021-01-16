@@ -309,12 +309,21 @@ class BreakoutAgent:
                 state = self.process_state(state)
 
                 done = False
+                is_new_episode = True
                 episode_steps = 0
                 total_reward = 0
 
                 while not done:
                     if render:
                         self.env.render()
+
+                    # Our state consists of 4 stacked game frames. If we are in a new episode,
+                    # stack the current frame 4 times and proceed from there.
+                    if is_new_episode:
+                        state_copy = copy.deepcopy(state)
+                        while state.size()[1] < self.num_frames:
+                            state = torch.cat([state, state_copy], 1)
+                        is_new_episode = False
 
                     action = self.predict_action(state)
                     new_state, reward, done, _ = self.env.step(action)
