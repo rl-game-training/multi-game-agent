@@ -197,6 +197,7 @@ class BreakoutAgent:
         loss = self.loss(q.view(-1), target)
         loss.backward()
         self.optimizer.step()
+        return loss
 
     def train(self, episodes, load_ckpt=False, render=False):
         """
@@ -208,7 +209,7 @@ class BreakoutAgent:
         """
         # Reset the steps
         self.total_steps = 0
-        metadata = dict(episode=[], reward=[])
+        metadata = dict(episode=[], reward=[], loss=[])
 
         if load_ckpt:
             self.load_ckpt()
@@ -225,6 +226,8 @@ class BreakoutAgent:
                 is_new_episode = True
                 done = False
                 total_reward = 0
+                loss = 0
+                loss_update_counter = 0
 
                 while not done:
                     if render:
@@ -265,7 +268,8 @@ class BreakoutAgent:
 
                     if self.total_steps > self.burn_in_steps and steps > self.batch_size:
                         if self.total_steps % self.update_interval == 0:
-                            self.update_dqn()
+                            loss_update_counter += 1
+                            loss += self.update_dqn()
 
                         if self.total_steps % self.clone_interval == 0:
                             self.clone_model()
@@ -277,8 +281,13 @@ class BreakoutAgent:
                     if self.total_steps % 1000 == 0:
                         progress_bar.set_description('total_steps={}'.format(self.total_steps))
 
+                episode_loss = loss / loss_update_counter
+
+                print('Episode loss: {}'.format(episode_loss))
+
                 metadata['episode'].append(episode)
                 metadata['reward'].append(total_reward)
+                metadata['loss'].append(episode_loss)
 
                 # Log info every 100 episodes
                 if episode % 100 == 0 and episode != 0:
