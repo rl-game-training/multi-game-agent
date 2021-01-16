@@ -335,6 +335,9 @@ class BreakoutAgent:
                     state = new_state
                     total_reward += reward
 
+                    print('Completed step {}. Action taken: {}. Reward gained: {}'
+                          .format(self.total_steps, action, reward))
+
                     self.total_steps += 1
                     episode_steps += 1
 
