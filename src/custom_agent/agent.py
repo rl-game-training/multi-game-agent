@@ -255,13 +255,13 @@ class BreakoutAgent:
                     steps += 1
 
                     if self.total_steps > self.burn_in_steps and steps > self.batch_size:
-                        if self.total_steps % self.update_interval:
+                        if self.total_steps % self.update_interval == 0:
                             self.update_dqn()
 
-                        if self.total_steps % self.clone_interval:
+                        if self.total_steps % self.clone_interval == 0:
                             self.clone_model()
 
-                        if self.total_steps % self.save_interval:
+                        if self.total_steps % self.save_interval == 0:
                             self.save_ckpt()
 
                     # Update progress bar every 1000 steps
