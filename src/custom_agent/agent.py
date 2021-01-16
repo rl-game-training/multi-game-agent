@@ -14,7 +14,7 @@ from tqdm import tqdm_notebook
 
 DEFAULT_CHECKPOINT_DIR = 'ckpt'
 
-Transition = namedtuple('Transition', ['state', 'action', 'reward', 'terminal', 'next_state'])
+Transition = namedtuple('Transition', ['state', 'action', 'reward', 'done', 'next_state'])
 
 
 class AgentMemory:
@@ -211,6 +211,7 @@ class BreakoutAgent:
                 state = self.env.reset()
                 state = self.process_state(state)
 
+                is_new_episode = True
                 done = False
                 total_reward = 0
 
@@ -218,10 +219,13 @@ class BreakoutAgent:
                     if render:
                         self.env.render()
 
-                    # Our state consists of 4 stacked game frames. If the current state doesn't
-                    # have 4 frames, stack the current frames 4 times.
-                    while state.size()[1] < self.num_frames:
-                        state = torch.cat([state, state], 1)
+                    # Our state consists of 4 stacked game frames. If we are in a new episode,
+                    # stack the current frame 4 times and proceed from there.
+                    if is_new_episode:
+                        state_copy = copy.deepcopy(state)
+                        while state.size()[1] < self.num_frames:
+                            state = torch.cat([state, state_copy], 1)
+                        is_new_episode = False
 
                     action = self.predict_action(state, train=True)
 
@@ -237,8 +241,8 @@ class BreakoutAgent:
 
                     # Convert to tensors
                     reward = torch.tensor([reward], device=self.device, dtype=torch.float)
-                    action = torch.tensor([action], device=self.device, dtype=torch.float)
-                    done = torch.tensor([done], device=self.device, dtype=torch.float)
+                    action = torch.tensor([action], device=self.device, dtype=torch.long)
+                    done = torch.tensor([done], device=self.device, dtype=torch.uint8)
 
                     # Remember the transition
                     self.memory.insert(state, action, reward, done, new_state)
