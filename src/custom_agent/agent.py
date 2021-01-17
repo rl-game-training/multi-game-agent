@@ -199,7 +199,7 @@ class BreakoutAgent:
         """
         # Reset the steps
         self.total_steps = 0
-        metadata = dict(episode=[], reward=[], loss=[])
+        metadata = dict(episode=[], reward=[])
 
         if load_ckpt:
             self.load_ckpt()
@@ -271,13 +271,13 @@ class BreakoutAgent:
                     if self.total_steps % 1000 == 0:
                         progress_bar.set_description('total_steps={}'.format(self.total_steps))
 
-                episode_loss = loss / loss_update_counter
+                if loss_update_counter > 0:
+                    episode_loss = loss / loss_update_counter
 
-                print('Episode loss: {}'.format(episode_loss))
+                    print('Episode loss: {}'.format(episode_loss))
 
                 metadata['episode'].append(episode)
                 metadata['reward'].append(total_reward)
-                metadata['loss'].append(episode_loss)
 
                 # Log info every 100 episodes
                 if episode % 100 == 0 and episode != 0:
