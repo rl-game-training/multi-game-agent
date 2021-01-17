@@ -12,6 +12,8 @@ from skimage.color import rgb2gray
 from skimage.transform import rescale
 from tqdm import tqdm_notebook
 
+from .dqn import DeepQNetwork
+
 DEFAULT_CHECKPOINT_DIR = 'ckpt'
 
 Transition = namedtuple('Transition', ['state', 'action', 'reward', 'done', 'next_state'])
@@ -34,7 +36,6 @@ class AgentMemory:
 class BreakoutAgent:
     def __init__(self,
                  env,
-                 model,
                  memory_size,
                  batch_size,
                  num_frames,
@@ -46,7 +47,7 @@ class BreakoutAgent:
                  decay_rate,
                  update_interval,
                  save_interval,
-                 clone_interval,
+                 target_update_interval,
                  ckpt_dir=DEFAULT_CHECKPOINT_DIR,
                  debug=False
                  ):
@@ -59,7 +60,9 @@ class BreakoutAgent:
         # Agent environment
         self.env = env
         # DQN model (enable cuda if available)
-        self.model = model.cuda() if self.cuda else model
+        self.model = DeepQNetwork(num_frames, self.env.action_space.n).to(self.device)
+        self.target_model = DeepQNetwork(num_frames, self.env.action_space.n).to(self.device)
+        self.target_model.eval()
         # Agent memory
         self.memory = AgentMemory(memory_size)
         self.batch_size = batch_size
@@ -85,7 +88,7 @@ class BreakoutAgent:
         # Agent details
         self.update_interval = update_interval  # Interval at which the DQN is updated
         self.save_interval = save_interval  # Interval at which checkpoints are saved
-        self.clone_interval = clone_interval  # Interval at which model is cloned
+        self.target_update_interval = target_update_interval  # Interval at which model is cloned
         # Steps the agent has done
         self.total_steps = 0
 
@@ -94,8 +97,6 @@ class BreakoutAgent:
                                              lr=learning_rate,
                                              alpha=0.95,
                                              eps=0.01)
-
-        self.clone_model()
 
         self.debug = debug
 
@@ -168,19 +169,8 @@ class BreakoutAgent:
 
         return action
 
-    def clone_model(self):
-        try:
-            del self.model_cloned
-        except:
-            pass
-
-        self.model_cloned = copy.deepcopy(self.model)
-
-        for param in self.model_cloned.parameters():
-            param.requires_grad = False
-
-        if self.cuda:
-            self.model_cloned = self.model_cloned.cuda()
+    def update_target_model(self):
+        self.target_model.load_state_dict(self.model.state_dict())
 
     def update_dqn(self):
         """
@@ -190,7 +180,7 @@ class BreakoutAgent:
 
         state, action, reward, done, next_state = self.memory.get_batch(self.batch_size)
         q = self.model(state).gather(1, action.view(self.batch_size, 1))
-        q_max = self.model_cloned(next_state).max(dim=1)[0]
+        q_max = self.target_model(next_state).max(dim=1)[0].detach()
 
         target = done.float() * reward + (~done).float() * (reward + self.gamma * q_max)
 
@@ -271,8 +261,8 @@ class BreakoutAgent:
                             loss_update_counter += 1
                             loss += self.update_dqn()
 
-                        if self.total_steps % self.clone_interval == 0:
-                            self.clone_model()
+                        if self.total_steps % self.target_update_interval == 0:
+                            self.update_target_model()
 
                         if self.total_steps % self.save_interval == 0:
                             self.save_ckpt()
