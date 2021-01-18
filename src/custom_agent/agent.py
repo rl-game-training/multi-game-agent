@@ -187,6 +187,7 @@ class BreakoutAgent:
         target = done.float() * reward + (~done).float() * (reward + self.gamma * q_max)
 
         loss = self.loss(q.view(-1), target)
+        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         return loss
