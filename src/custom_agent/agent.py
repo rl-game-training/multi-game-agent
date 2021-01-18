@@ -159,9 +159,11 @@ class BreakoutAgent:
         if train and explore_probability > tradeoff:
             action = np.random.choice(self.num_actions)
         else:
+            self.model.eval()
             q_values = self.model(state).detach()
             action = torch.argmax(q_values)
             action = action.item()
+            self.model.train()
 
         if self.debug:
             print('Predicted action: {} with explore probability: {:.3f}. Random: {}'
