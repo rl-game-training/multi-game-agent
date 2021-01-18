@@ -176,11 +176,11 @@ class BreakoutAgent:
         """
         Updates the weights of the DQN model.
         """
-        self.model.zero_grad()
-
         state, action, reward, done, next_state = self.memory.get_batch(self.batch_size)
         q = self.model(state).gather(1, action.view(self.batch_size, 1))
-        q_max = self.target_model(next_state).max(dim=1)[0].detach()
+
+        with torch.no_grad():
+            q_max = self.target_model(next_state).max(dim=1)[0].detach()
 
         target = done.float() * reward + (~done).float() * (reward + self.gamma * q_max)
 
@@ -199,7 +199,7 @@ class BreakoutAgent:
         """
         # Reset the steps
         self.total_steps = 0
-        metadata = dict(episode=[], reward=[])
+        metadata = dict(episode=[], reward=[], loss=[])
 
         if load_ckpt:
             self.load_ckpt()
@@ -273,8 +273,7 @@ class BreakoutAgent:
 
                 if loss_update_counter > 0:
                     episode_loss = loss / loss_update_counter
-
-                    print('Episode loss: {}'.format(episode_loss))
+                    metadata['loss'].append(episode_loss)
 
                 metadata['episode'].append(episode)
                 metadata['reward'].append(total_reward)
@@ -282,7 +281,9 @@ class BreakoutAgent:
                 # Log info every 100 episodes
                 if episode % 100 == 0 and episode != 0:
                     avg_reward = np.mean(metadata['reward'][-100:], dtype=np.float)
-                    print('Average reward (last 100 episodes): {:.2f}'.format(avg_reward))
+                    avg_loss = np.mean(metadata['loss'][-25:], dtype=np.float)
+                    print('Average reward (last 100 episodes): {:.2f}. Average loss: {:.2f}'
+                          .format(avg_reward, avg_loss))
 
             self.env.close()
             return metadata
