@@ -202,6 +202,9 @@ class BreakoutAgent:
             state = self.env.reset()
             state = self.process_state(state)
 
+            if step % 100 == 0:
+                print('Burned in {} steps'.format(step))
+
             done = False
 
             while True:
@@ -241,7 +244,7 @@ class BreakoutAgent:
         if self.memory.size < self.burn_in_steps:
             print('Filling memory...')
             self.burn_in_memory()
-            print('Filled memory.')
+            print('Filled memory. Memory size: {}'.format(self.memory.size))
 
         # Reset the steps
         self.total_steps = 0
