@@ -197,7 +197,8 @@ class BreakoutAgent:
         return loss
 
     def burn_in_memory(self):
-        for step in range(self.burn_in_steps):
+        step = 0
+        while step < self.burn_in_steps:
             state = self.env.reset()
             state = self.process_state(state)
 
@@ -224,6 +225,7 @@ class BreakoutAgent:
                 self.memory.insert(state, action_, reward_, done_, next_state)
 
                 state = next_state
+                step += 1
 
     def train(self, episodes, load_ckpt=False, render=False):
         """
