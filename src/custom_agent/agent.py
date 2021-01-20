@@ -23,6 +23,10 @@ class AgentMemory:
     def __init__(self, size):
         self.memory = deque(maxlen=size)
 
+    @property
+    def size(self):
+        return len(self.memory)
+
     def insert(self, *args):
         self.memory.append(Transition(*args))
 
@@ -31,6 +35,9 @@ class AgentMemory:
         batch = Transition(*zip(*transitions))
         state, action, reward, done, next_state = map(torch.cat, [*batch])
         return state, action, reward, done, next_state
+
+    def __len__(self):
+        return len(self.memory)
 
 
 class BreakoutAgent:
@@ -151,10 +158,9 @@ class BreakoutAgent:
         :param train: Flag if the agent is training. If set to False exploration is ignored.
         :return: Predicted action
         """
-        decay_steps = self.total_steps - self.burn_in_steps
         tradeoff = np.random.rand()
         explore_probability = self.explore_stop + (self.explore_start - self.explore_stop) * \
-                              np.exp(-self.decay_rate * decay_steps)
+                              np.exp(-self.decay_rate * self.total_steps)
 
         if train and explore_probability > tradeoff:
             action = np.random.choice(self.num_actions)
@@ -186,10 +192,38 @@ class BreakoutAgent:
         target = done.float() * reward + (~done).float() * (reward + self.gamma * q_max)
 
         loss = self.loss(q.view(-1), target)
-        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         return loss
+
+    def burn_in_memory(self):
+        for step in range(self.burn_in_steps):
+            state = self.env.reset()
+            state = self.process_state(state)
+
+            done = False
+
+            while not done:
+                if state.size()[1] < self.num_frames:
+                    state_copy = copy.deepcopy(state)
+                    while state.size()[1] < self.num_frames:
+                        state = torch.cat([state, state_copy], 1)
+
+                action = self.env.action_space.sample()
+
+                next_state, reward, done, _ = self.env.step(action)
+                next_state = self.process_state(next_state)
+                next_state = torch.cat([state, next_state], 1)
+                next_state = next_state[:, 1:, :, :]
+
+                # Convert to tensors
+                reward_ = torch.tensor([reward], device=self.device, dtype=torch.float)
+                action_ = torch.tensor([action], device=self.device, dtype=torch.long)
+                done_ = torch.tensor([done], device=self.device, dtype=torch.uint8)
+
+                self.memory.insert(state, action_, reward_, done_, next_state)
+
+                state = next_state
 
     def train(self, episodes, load_ckpt=False, render=False):
         """
@@ -199,6 +233,11 @@ class BreakoutAgent:
         :param load_ckpt: If the agent should look for a saved checkpoint
         :param render: If the agent should render the environment
         """
+        if self.memory.size < self.burn_in_steps:
+            print('Filling memory...')
+            self.burn_in_memory()
+            print('Filled memory.')
+
         # Reset the steps
         self.total_steps = 0
         metadata = dict(episode=[], reward=[], loss=[])
@@ -246,28 +285,27 @@ class BreakoutAgent:
                     new_state = new_state[:, 1:, :, :]
 
                     # Convert to tensors
-                    reward = torch.tensor([reward], device=self.device, dtype=torch.float)
-                    action = torch.tensor([action], device=self.device, dtype=torch.long)
-                    done = torch.tensor([done], device=self.device, dtype=torch.uint8)
+                    reward_ = torch.tensor([reward], device=self.device, dtype=torch.float)
+                    action_ = torch.tensor([action], device=self.device, dtype=torch.long)
+                    done_ = torch.tensor([done], device=self.device, dtype=torch.uint8)
 
                     # Remember the transition
-                    self.memory.insert(state, action, reward, done, new_state)
+                    self.memory.insert(state, action_, reward_, done_, new_state)
 
                     state = new_state
                     total_reward += reward
                     self.total_steps += 1
                     steps += 1
 
-                    if self.total_steps > self.burn_in_steps and steps > self.batch_size:
-                        if self.total_steps % self.update_interval == 0:
-                            loss_update_counter += 1
-                            loss += self.update_dqn()
+                    if self.total_steps % self.update_interval == 0:
+                        loss_update_counter += 1
+                        loss += self.update_dqn()
 
-                        if self.total_steps % self.target_update_interval == 0:
-                            self.update_target_model()
+                    if self.total_steps % self.target_update_interval == 0:
+                        self.update_target_model()
 
-                        if self.total_steps % self.save_interval == 0:
-                            self.save_ckpt()
+                    if self.total_steps % self.save_interval == 0:
+                        self.save_ckpt()
 
                     # Update progress bar every 1000 steps
                     if self.total_steps % 1000 == 0:
