@@ -204,7 +204,7 @@ class BreakoutAgent:
 
             done = False
 
-            while not done:
+            while True:
                 if state.size()[1] < self.num_frames:
                     state_copy = copy.deepcopy(state)
                     while state.size()[1] < self.num_frames:
@@ -226,6 +226,9 @@ class BreakoutAgent:
 
                 state = next_state
                 step += 1
+
+                if done:
+                    break
 
     def train(self, episodes, load_ckpt=False, render=False):
         """
